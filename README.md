@@ -1,7 +1,7 @@
 # BlenderFBXBatchExportTool
 
 Static FBX Batch Export
-(c) 2015-2017, Kishimoto Studios
+(c) 2015-2018, Kishimoto Studios
 
 1. Run this Python script inside Blender (open it in "Text Editor" then click the "Run script" button).
 2. Select all static objects you want to export.

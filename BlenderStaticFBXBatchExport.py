@@ -1,6 +1,6 @@
 #
 # Static FBX Batch Export
-# (c) 2015-2017, Kishimoto Studios
+# (c) 2015-2018, Kishimoto Studios
 #
 # 1. Run this Python script inside Blender (open it in "Text Editor" then click the "Run script" button).
 # 2. Select all static objects you want to export.
@@ -13,17 +13,18 @@
 #
 
 #
-# Blender 2.78a to Unity 5.5.1f export process:
-# 1. The object must be rotated X=90.
-# 2. If you already created your model, enter Edit Mode and rotate everything X=-90 (so your model looks correct).
+# Blender 2.79 to Unity 2018.2 export process:
+# This script now rotates all selected objects to X=90, enters Edit Mode and rotate everything X=-90 so the model
+# looks correct in Unity.
+# It also exports objects without translation (i.e. it puts the object at (0,0,0) before exporting).
 #
 
 
 bl_info = {
 	"name": "KishiTech - Static FBX Batch Export",
 	"author": "Andre Kishimoto // Kishimoto Studios",
-	"version": (0, 2),
-	"blender": (2, 7, 8),
+	"version": (0, 3),
+	"blender": (2, 7, 9),
 	"location": "Info > File",
 	"description": "Export all selected [static] mesh objects to their own [object name].FBX file.",
 	"category": "Import-Export"
@@ -32,6 +33,10 @@ bl_info = {
 import bpy
 import os
 import shutil
+import bmesh
+import mathutils
+import math
+from math import radians
 
 global_name = "KishiTech - Static FBX Batch Export"
 
@@ -67,6 +72,30 @@ class StaticFBXBatchExport(bpy.types.Operator):
 		for object in objects:
 			object_name = object.name
 			object.select = True
+			bpy.context.scene.objects.active = object
+			
+			original_tx = object.location.x
+			original_ty = object.location.y
+			original_tz = object.location.z
+			original_rx = object.rotation_euler.x
+			original_ry = object.rotation_euler.y
+			original_rz = object.rotation_euler.z
+			
+			object.location = (0, 0, 0)
+			object.rotation_euler = (radians(90), 0, 0)
+			
+			bpy.ops.object.mode_set(mode = "EDIT")
+			me = object.data
+			bm = bmesh.from_edit_mesh(me)
+			center = (0.0, 0.0, 0.0)
+			rot = mathutils.Euler((math.radians(-90), 0.0, 0.0)).to_matrix()
+			for v in bm.verts:
+				v.select = True
+			selected = [v for v in bm.verts if v.select]
+			bmesh.ops.rotate(bm, cent = center, matrix = rot, verts = selected)
+			bmesh.update_edit_mesh(me)
+			bpy.ops.object.mode_set(mode = "OBJECT")
+
 			final_name = bpy.path.clean_name(object_name)
 			filename = os.path.join(basedir, final_name)
 			bpy.ops.export_scene.fbx(
@@ -79,6 +108,7 @@ class StaticFBXBatchExport(bpy.types.Operator):
 				use_selection = True,
 				global_scale = 1.0,
 				apply_unit_scale = False,
+				apply_scale_options = "FBX_SCALE_ALL",
 				bake_space_transform = False,
 				object_types = { "MESH" },
 				use_mesh_modifiers = True,
@@ -106,7 +136,22 @@ class StaticFBXBatchExport(bpy.types.Operator):
 				batch_mode = "OFF",
 				use_batch_own_dir = True,
 				use_metadata = True)
-			object.select = False
+
+			bpy.ops.object.mode_set(mode = "EDIT")
+			me = object.data
+			bm = bmesh.from_edit_mesh(me)
+			center = (0.0, 0.0, 0.0)
+			rot = mathutils.Euler((math.radians(90), 0.0, 0.0)).to_matrix()
+			for v in bm.verts:
+				v.select = True
+			selected = [v for v in bm.verts if v.select]
+			bmesh.ops.rotate(bm, cent = center, matrix = rot, verts = selected)
+			bmesh.update_edit_mesh(me)
+			bpy.ops.object.mode_set(mode = "OBJECT")
+				
+			object.location = (original_tx, original_ty, original_tz) 
+			object.rotation_euler = (original_rx, original_ry, original_rz) 
+			object.select = False			
 			
 			if self.dest_folder != "":
 				if os.path.isdir(self.dest_folder):
